@@ -1,5 +1,6 @@
 package com.openclassrooms.tourguide.service;
 
+import com.openclassrooms.tourguide.dto.NearbyAttractionDTO;
 import com.openclassrooms.tourguide.helper.InternalTestHelper;
 import com.openclassrooms.tourguide.tracker.Tracker;
 import com.openclassrooms.tourguide.user.User;
@@ -95,15 +96,35 @@ public class TourGuideService {
 		return visitedLocation;
 	}
 
-	public List<Attraction> getNearByAttractions(VisitedLocation visitedLocation) {
-		List<Attraction> nearbyAttractions = new ArrayList<>();
-		for (Attraction attraction : gpsUtil.getAttractions()) {
-			if (rewardsService.isWithinAttractionProximity(attraction, visitedLocation.location)) {
-				nearbyAttractions.add(attraction);
-			}
-		}
+//	public List<Attraction> getNearByAttractions(VisitedLocation visitedLocation) {
+//		List<Attraction> nearbyAttractions = new ArrayList<>();
+//		for (Attraction attraction : gpsUtil.getAttractions()) {
+//			if (rewardsService.isWithinAttractionProximity(attraction, visitedLocation.location)) {
+//				nearbyAttractions.add(attraction);
+//			}
+//		}
+//
+//		return nearbyAttractions;
+//	}
 
-		return nearbyAttractions;
+	public List<NearbyAttractionDTO> getNearByAttractions(VisitedLocation visitedLocation, User user) {
+		return gpsUtil.getAttractions().stream()
+				.sorted((a1, a2) -> Double.compare(
+						rewardsService.getDistance(visitedLocation.location, a1),
+						rewardsService.getDistance(visitedLocation.location, a2)))
+				.limit(5)
+				.map(attraction -> {
+					NearbyAttractionDTO dto = new NearbyAttractionDTO();
+					dto.setAttractionName(attraction.attractionName);
+					dto.setAttractionLatitude(attraction.latitude);
+					dto.setAttractionLongitude(attraction.longitude);
+					dto.setUserLatitude(visitedLocation.location.latitude);
+					dto.setUserLongitude(visitedLocation.location.longitude);
+					dto.setDistance(rewardsService.getDistance(visitedLocation.location, attraction));
+					dto.setRewardPoints(rewardsService.getRewardPoints(attraction, user));
+					return dto;
+				})
+				.collect(Collectors.toList());
 	}
 
 	private void addShutDownHook() {
