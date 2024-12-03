@@ -113,17 +113,15 @@ public class TourGuideService {
 						rewardsService.getDistance(visitedLocation.location, a1),
 						rewardsService.getDistance(visitedLocation.location, a2)))
 				.limit(5)
-				.map(attraction -> {
-					NearbyAttractionDTO dto = new NearbyAttractionDTO();
-					dto.setAttractionName(attraction.attractionName);
-					dto.setAttractionLatitude(attraction.latitude);
-					dto.setAttractionLongitude(attraction.longitude);
-					dto.setUserLatitude(visitedLocation.location.latitude);
-					dto.setUserLongitude(visitedLocation.location.longitude);
-					dto.setDistance(rewardsService.getDistance(visitedLocation.location, attraction));
-					dto.setRewardPoints(rewardsService.getRewardPoints(attraction, user));
-					return dto;
-				})
+				.map(attraction -> new NearbyAttractionDTO(
+						attraction.attractionName,
+						attraction.latitude,
+						attraction.longitude,
+						visitedLocation.location.latitude,
+						visitedLocation.location.longitude,
+						rewardsService.getDistance(visitedLocation.location, attraction),
+						rewardsService.getRewardPoints(attraction, user)
+				))
 				.collect(Collectors.toList());
 	}
 
