@@ -1,38 +1,29 @@
 package com.openclassrooms.tourguide.service;
 
+import com.openclassrooms.tourguide.dto.NearbyAttractionDTO;
 import com.openclassrooms.tourguide.helper.InternalTestHelper;
 import com.openclassrooms.tourguide.tracker.Tracker;
 import com.openclassrooms.tourguide.user.User;
 import com.openclassrooms.tourguide.user.UserReward;
-
-import java.time.LocalDateTime;
-import java.time.ZoneOffset;
-import java.util.ArrayList;
-import java.util.Date;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Locale;
-import java.util.Map;
-import java.util.Random;
-import java.util.UUID;
-import java.util.stream.Collectors;
-import java.util.stream.IntStream;
-
+import gpsUtil.GpsUtil;
+import gpsUtil.location.Location;
+import gpsUtil.location.VisitedLocation;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
-
-import gpsUtil.GpsUtil;
-import gpsUtil.location.Attraction;
-import gpsUtil.location.Location;
-import gpsUtil.location.VisitedLocation;
-
 import tripPricer.Provider;
 import tripPricer.TripPricer;
 
+import java.time.LocalDateTime;
+import java.time.ZoneOffset;
+import java.util.*;
+import java.util.concurrent.CompletableFuture;
+import java.util.stream.Collectors;
+import java.util.stream.IntStream;
+
 @Service
 public class TourGuideService {
-	private Logger logger = LoggerFactory.getLogger(TourGuideService.class);
+	private final Logger logger = LoggerFactory.getLogger(TourGuideService.class);
 	private final GpsUtil gpsUtil;
 	private final RewardsService rewardsService;
 	private final TripPricer tripPricer = new TripPricer();
@@ -61,9 +52,10 @@ public class TourGuideService {
 
 	public VisitedLocation getUserLocation(User user) {
 		VisitedLocation visitedLocation = (user.getVisitedLocations().size() > 0) ? user.getLastVisitedLocation()
-				: trackUserLocation(user);
+				: trackUserLocation(user).join();
 		return visitedLocation;
 	}
+
 
 	public User getUser(String userName) {
 		return internalUserMap.get(userName);
@@ -88,23 +80,45 @@ public class TourGuideService {
 		return providers;
 	}
 
-	public VisitedLocation trackUserLocation(User user) {
-		VisitedLocation visitedLocation = gpsUtil.getUserLocation(user.getUserId());
-		user.addToVisitedLocations(visitedLocation);
-		rewardsService.calculateRewards(user);
-		return visitedLocation;
+
+	public CompletableFuture<VisitedLocation> trackUserLocation(User user) {
+		// Obtenir la localisation de l'utilisateur de manière asynchrone
+		CompletableFuture<VisitedLocation> locationFuture = CompletableFuture.supplyAsync(() ->
+				gpsUtil.getUserLocation(user.getUserId())
+		);
+
+		// Calcul des récompenses de manière asynchrone après avoir obtenu la localisation
+		return locationFuture.thenApplyAsync(visitedLocation -> {
+			user.addToVisitedLocations(visitedLocation); // Mise à jour des lieux visités
+			rewardsService.calculateRewards(user); // Calcul des récompenses (potentiellement lourd)
+			return visitedLocation;
+		});
 	}
 
-	public List<Attraction> getNearByAttractions(VisitedLocation visitedLocation) {
-		List<Attraction> nearbyAttractions = new ArrayList<>();
-		for (Attraction attraction : gpsUtil.getAttractions()) {
-			if (rewardsService.isWithinAttractionProximity(attraction, visitedLocation.location)) {
-				nearbyAttractions.add(attraction);
-			}
-		}
 
-		return nearbyAttractions;
+	public List<NearbyAttractionDTO> getNearByAttractions(VisitedLocation visitedLocation, User user) {
+		List<CompletableFuture<NearbyAttractionDTO>> futures = gpsUtil.getAttractions().parallelStream()
+				.sorted((a1, a2) -> Double.compare(
+						rewardsService.getDistance(visitedLocation.location, a1),
+						rewardsService.getDistance(visitedLocation.location, a2)))
+				.limit(5)
+				.map(attraction -> CompletableFuture.supplyAsync(() -> new NearbyAttractionDTO(
+						attraction.attractionName,
+						attraction.latitude,
+						attraction.longitude,
+						visitedLocation.location.latitude,
+						visitedLocation.location.longitude,
+						rewardsService.getDistance(visitedLocation.location, attraction),
+						rewardsService.getRewardPoints(attraction, user)
+				)))
+				.toList();
+
+		return futures.parallelStream()
+				.map(CompletableFuture::join)
+				.collect(Collectors.toList());
 	}
+
+
 
 	private void addShutDownHook() {
 		Runtime.getRuntime().addShutdownHook(new Thread() {
