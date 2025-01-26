@@ -12,12 +12,11 @@
 L'objectif principal du projet est de fournir des recommandations touristiques basées sur la localisation de l'utilisateur. La mission consistait à débuguer certaines parties de code et améliorer les performances grâce au multithreading.
 
 
-# Technologies
+## Technologies
 
 > Java 17  
 > Spring Boot 3.X  
 > Maven
-> JUnit 5
 
 
 ## Installation
