@@ -16,7 +16,9 @@ L'objectif principal du projet est de fournir des recommandations touristiques b
 
 > Java 17  
 > Spring Boot 3.X  
-> Maven
+> Maven  
+> JUnit 5  
+> Github Actions
 
 
 ## Installation
