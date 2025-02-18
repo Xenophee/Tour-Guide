@@ -71,6 +71,12 @@ public class TourGuideService {
 		}
 	}
 
+	/**
+	 * Récupère les offres de voyage pour un utilisateur donné.
+	 *
+	 * @param user L'utilisateur pour lequel obtenir les offres de voyage.
+	 * @return Une liste de fournisseurs proposant des offres de voyage pour l'utilisateur.
+	 */
 	public List<Provider> getTripDeals(User user) {
 		int cumulatativeRewardPoints = user.getUserRewards().stream().mapToInt(i -> i.getRewardPoints()).sum();
 		List<Provider> providers = tripPricer.getPrice(tripPricerApiKey, user.getUserId(),
@@ -81,6 +87,12 @@ public class TourGuideService {
 	}
 
 
+	/**
+	 * Suit la localisation d'un utilisateur de manière asynchrone.
+	 *
+	 * @param user L'utilisateur dont la localisation doit être suivie.
+	 * @return Un CompletableFuture contenant la localisation visitée de l'utilisateur.
+	 */
 	public CompletableFuture<VisitedLocation> trackUserLocation(User user) {
 		// Obtenir la localisation de l'utilisateur de manière asynchrone
 		CompletableFuture<VisitedLocation> locationFuture = CompletableFuture.supplyAsync(() ->
@@ -96,6 +108,13 @@ public class TourGuideService {
 	}
 
 
+	/**
+	 * Récupère les attractions les plus proches d'une localisation visitée.
+	 *
+	 * @param visitedLocation La localisation visitée par l'utilisateur.
+	 * @param user L'utilisateur pour lequel trouver les attractions proches.
+	 * @return Une liste des attractions les plus proches sous forme de DTO.
+	 */
 	public List<NearbyAttractionDTO> getNearByAttractions(VisitedLocation visitedLocation, User user) {
 		List<CompletableFuture<NearbyAttractionDTO>> futures = gpsUtil.getAttractions().parallelStream()
 				.sorted((a1, a2) -> Double.compare(
